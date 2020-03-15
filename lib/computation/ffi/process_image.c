@@ -21,9 +21,8 @@ uint8_t blue_val(uint32_t color) {
     return (uint8_t)((0x000000ff & color) >> 0);
 }
 
-uint8_t* process_image(uint16_t width, uint16_t height, uint32_t *colors, uint8_t def_count, uint16_t *values, uint32_t value_count, uint8_t line_size) {
+uint8_t* process_image(uint16_t width, uint16_t height, uint32_t *colors, uint8_t def_count, uint16_t *values, uint32_t value_count, uint8_t line_size, uint8_t *bytes) {
     size_t byte_count = 4 * width * height;
-    uint8_t* bytes = (uint8_t*)calloc(byte_count, sizeof(uint8_t));
 
     size_t size_of_row = 4 * width;
     size_t y_start_at_i[def_count];
@@ -66,7 +65,8 @@ int main() {
         }
     }
 
-    uint8_t* img = process_image(imgSize, imgSize, &(colors[0]), 2, &(values[0]), imgSize * 2, 3);
+    uint8_t* img = (uint8_t *)calloc(imgSize * imgSize * 4, sizeof(uint8_t));
+    process_image(imgSize, imgSize, &(colors[0]), 2, &(values[0]), imgSize * 2, 3, img);
     const int MaxColorComponentValue=255;
     char *comment="# ";/* comment should start with # */
     FILE * fp;

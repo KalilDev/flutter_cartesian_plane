@@ -1,5 +1,4 @@
 import 'package:meta/meta.dart';
-import 'package:flutter/material.dart' show Color;
 import 'typedefs.dart';
 
 @immutable
@@ -10,7 +9,7 @@ class FunctionDef {
   final MathFunc deriv;
   final PointDescriber describe;
   final String name;
-  final Color color;
+  final int color;
   final int hash;
 
   @override

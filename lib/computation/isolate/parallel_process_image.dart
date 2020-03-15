@@ -1,9 +1,9 @@
 import 'dart:isolate';
-import '../isolate_wrapper.dart';
+import 'isolate_wrapper.dart';
 
-import '../process_image.dart';
 import 'package:efficient_uint8_list/efficient_uint8_list.dart';
-import '../message.dart';
+import '../common/message.dart';
+import '../sync_process_image.dart';
 
 Future<PackedUint8List> processImageImpl(PixelDataMessage message) {
   print('Using isolate impl');
@@ -16,6 +16,6 @@ void wrappedProcessImage(SendPort mainSink) {
   mainSink.send(isolateStream.sendPort);
 
   isolateStream.listen((dynamic message) {
-    mainSink.send(processImage(message as PixelDataMessage));
+    mainSink.send(syncProcessImage(message as PixelDataMessage));
   });
 }

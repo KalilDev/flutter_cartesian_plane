@@ -3,102 +3,19 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_cartesian_plane/isolate/impl/stub_impl.dart';
 import 'package:efficient_uint8_list/efficient_uint8_list.dart';
-import '../cartesian_isolate.dart';
+import '../cartesian_computation.dart';
 import '../cartesian_utils.dart';
 import 'package:tuple/tuple.dart';
 
-@visibleForTesting
-Future<PackedUint8List> getFutureImage(
-    IntSize sizePx, List<FunctionDef> defs, Rect coordinates, int lineSize,
-    {FutureOr<PackedUint8List> Function(PixelDataMessage msg)
-        imageConverter}) async {
-  final timer = Stopwatch()..start();
-  final valAllocTimer = Stopwatch();
-  // Use the isolate/worker implementation by default
-  imageConverter ??= futureProcessImage;
-// We will make an List with all the x values as the idx and the y values and then we will add
-// those to the image.
-// This is an flattened 2d array basically. Its more performant than an
-// array[sizePx.width] of arrays[defs.length].
-  final width = sizePx.width & 0xffff;
-  final height = sizePx.height & 0xffff;
-  valAllocTimer.start();
-  final values = Uint16List(width * defs.length);
-  valAllocTimer.stop();
-  print('took ${valAllocTimer.elapsedMicroseconds}us to alloc vals');
+extension on Size {
+  IntSize round() => IntSize(width.round(), height.round());
+  IntSize floor() => IntSize(width.floor(), height.floor());
+  IntSize ceil() => IntSize(width.ceil(), height.ceil());
+}
 
-  // This was benchmarked on my Moto G5:
-  // Lerp inside the loop:
-  //     Average: 5415
-  //     Median: 5770
-  //     Max-Min Delta: 4501
-  //     Times: [6556, 5728, 8277, 5812, 6182, 5878, 3861, 3849, 4231, 3776]
-  // Lerp outside the loop (here):
-  //     Average: 4691
-  //     Median: 4396
-  //     Max-Min Delta: 3817
-  //     Times: [5670, 5212, 6937, 4295, 4498, 6864, 3948, 3120, 3130, 3245]
-  final xPx = ui.lerpDouble(coordinates.left, coordinates.right, 1 / width) -
-      coordinates.left;
-  final yPx = ui.lerpDouble(coordinates.top, coordinates.bottom, 1 / height) -
-      coordinates.top;
-
-  var xValue = coordinates.left;
-  for (var x = 0; x < width; x++) {
-    var arrayIndex = x;
-    for (var i = 0; i < defs.length; i++) {
-      final F = defs[i].func;
-      final yValue = F(xValue);
-      // Reason: It simply isn't true (At least in this case)
-      // Benchmark with ~/:
-      //     Average: 8161
-      //     Median: 8100
-      //     Max-Min Delta: 6158
-      // Benchmark with toInt():
-      //     Average: 1371
-      //     Median: 1344
-      //     Max-Min Delta: 4320
-      final yPixelDouble = (yValue - coordinates.top) / yPx;
-      try {
-        // ignore: division_optimization
-        values[arrayIndex] = yPixelDouble.toInt();
-      } on UnsupportedError catch (e) {
-        if (((!yPixelDouble.isNegative) && yPixelDouble.isInfinite) ||
-            yPixelDouble.isNaN) {
-          print(yPixelDouble);
-          values[arrayIndex] = height;
-          continue;
-        }
-      }
-      arrayIndex += width;
-    }
-    xValue += xPx;
-  }
-  timer.stop();
-  print('Calculating every Y took ${timer.elapsedMicroseconds}');
-  //print('Calculating every func took ${functionTimer.elapsedMicroseconds}');
-
-// Let there be an async gap, this will avoid dropping frames.
-  await Future.value(null);
-
-  timer.reset();
-  final colors = Uint32List.fromList(defs
-      .map<int>((e) => e.color?.value ?? 0xFFFFFFFF)
-      .toList(growable: false));
-// Now we convert the Ys into an actual image.
-  timer.start();
-  final bytes = imageConverter(PixelDataMessage(
-      values: values,
-      width: width,
-      height: height,
-      lineSize: lineSize,
-      colors: colors));
-  timer.stop();
-  print('Creating the image took ${timer.elapsedMicroseconds}');
-
-  return bytes;
+extension CoordinatesRect on Rect {
+  Coordinates toCoords() => Coordinates(left, bottom, right, top);
 }
 
 @visibleForTesting
@@ -107,13 +24,13 @@ String defaultDescription(double x, double y) =>
 
 class CartesianPlane extends StatefulWidget {
   const CartesianPlane(
-      {Rect coords,
+      {Coordinates coords,
       this.currentX,
       this.lineSize = 2,
       this.aspectRatio,
       this.defs})
-      : coords = coords ?? const Rect.fromLTRB(-1, 1, 1, -1);
-  final Rect coords;
+      : coords = coords ?? Coordinates.def;
+  final Coordinates coords;
   final double currentX;
   final double aspectRatio;
   final int lineSize;
@@ -160,8 +77,7 @@ class _CartesianPlaneState extends State<CartesianPlane> {
     // We will need to process the image now
     final processing = Tuple2<List<FunctionDef>, IntSize>(defs, size);
     currentProcessing = processing;
-    final bytes = await getFutureImage(size, defs, coords, lineSize * 4,
-        imageConverter: processImageImpl);
+    final bytes = await getFutureImage(size, defs, coords, lineSize * 2);
 
     // Exit if a new image was scheduled
     if (processing != currentProcessing) return;
@@ -212,12 +128,12 @@ class _CartesianPlaneState extends State<CartesianPlane> {
       final describe = widget.defs[i].describe ?? defaultDescription;
       final y = F(widget.currentX);
       final xPos = inverseLerp(
-              widget.coords.left, widget.coords.right, widget.currentX) *
+              widget.coords.xMin, widget.coords.xMax, widget.currentX) *
           s.width;
       final yPos =
-          inverseLerp(widget.coords.top, widget.coords.bottom, y) * s.height;
+          inverseLerp(widget.coords.yMax, widget.coords.yMin, y) * s.height;
       final description = describe(widget.currentX, y);
-      yield Tuple3(Offset(xPos, yPos), description, c);
+      yield Tuple3(Offset(xPos, yPos), description, Color(c));
     }
   }
 
@@ -228,17 +144,17 @@ class _CartesianPlaneState extends State<CartesianPlane> {
       if (D == null) continue;
       final c = widget.defs[i].color;
       final xPos = inverseLerp(
-              widget.coords.left, widget.coords.right, widget.currentX) *
+              widget.coords.xMin, widget.coords.xMax, widget.currentX) *
           s.width;
       final yPos = inverseLerp(
-              widget.coords.top, widget.coords.bottom, F(widget.currentX)) *
+              widget.coords.yMax, widget.coords.yMin, F(widget.currentX)) *
           s.height;
       // The derivative works for an 1:1 cartesian plane, which isn't the case always
       // We need to scale it accordingly
-      final xSize = s.width / widget.coords.width.abs();
-      final ySize = s.height / widget.coords.height.abs();
+      final xSize = s.width / widget.coords.xSize;
+      final ySize = s.height / widget.coords.ySize;
       final d = D(widget.currentX) * (ySize / xSize);
-      yield Tuple3(Offset(xPos, yPos), d, c);
+      yield Tuple3(Offset(xPos, yPos), d, Color(c));
     }
   }
 
@@ -249,9 +165,9 @@ class _CartesianPlaneState extends State<CartesianPlane> {
       if (name == null) continue;
       final c = widget.defs[i].color;
       final yPos = inverseLerp(
-              widget.coords.top, widget.coords.bottom, F(widget.coords.left)) *
+              widget.coords.yMax, widget.coords.yMin, F(widget.coords.yMin)) *
           s.height;
-      yield Tuple3(Offset(0, yPos), name, c);
+      yield Tuple3(Offset(0, yPos), name, Color(c));
     }
   }
 
@@ -259,11 +175,10 @@ class _CartesianPlaneState extends State<CartesianPlane> {
   Widget build(BuildContext context) {
     return AspectRatio(
         aspectRatio: widget.aspectRatio ??
-            widget.coords.width.abs() / widget.coords.height.abs(),
+            widget.coords.aspectRatio,
         child: LayoutBuilder(
             builder: (BuildContext context, BoxConstraints constraints) {
-          print(constraints);
-          currentSize = IntSize.ceil(constraints.biggest * 4);
+          currentSize = (constraints.biggest * 2).ceil();
           maybeUpdateImage();
           return Stack(
             children: <Widget>[

@@ -1,20 +1,19 @@
 import 'dart:ffi';
-import 'dart:io';
 import 'dart:typed_data';
 
 import '../packed_uint8_list.dart';
 import 'calloc.dart';
 import 'package:ffi/ffi.dart' as ffi show free;
 
-class _Uint8ListPointer extends UnsafeUint8List {
-  factory _Uint8ListPointer._allocate(int length) {
-    // Throws if it cant allocate
-    final pointer = callocUint8(count: length);
+class Uint8ListPointer extends UnsafeUint8List {
+  factory Uint8ListPointer.allocate(int length) {
+    // Throws if it can't allocate
+    final pointer = calloc<Uint8>(count: length);
 
-    return _Uint8ListPointer._(pointer, length);
+    return Uint8ListPointer(pointer, length);
   }
 
-  _Uint8ListPointer._(this._pointer, this._length);
+  Uint8ListPointer(this._pointer, this._length);
   final Pointer<Uint8> _pointer;
   final int _length;
   bool wasDisposed = false;
@@ -57,5 +56,5 @@ class _Uint8ListPointer extends UnsafeUint8List {
   void operator []=(int index, int value) => _pointer[index] = value;
 }
 
-PackedUint8List createUint8ListImpl(int length) =>
-    _Uint8ListPointer._allocate(length);
+PackedUint8List createUint8List(int length) =>
+    Uint8ListPointer.allocate(length);

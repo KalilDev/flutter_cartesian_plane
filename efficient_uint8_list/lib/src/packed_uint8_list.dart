@@ -9,9 +9,13 @@ class SafeUint8List extends ListBase<int> implements PackedUint8List {
   SafeUint8List(this._bytes);
   final Uint8List _bytes;
 
+  @override
   Uint8List get view => _bytes;
 
+  @override
   int get length => _bytes.length;
+  
+  @override
   set length(int l) => _bytes.length = l;
 
   @override

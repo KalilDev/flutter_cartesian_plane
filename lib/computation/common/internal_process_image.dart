@@ -1,11 +1,16 @@
+import 'dart:developer';
+import 'dart:typed_data';
+
 import 'package:flutter_cartesian_plane/cartesian_utils.dart' show MinColor;
 
 import 'message.dart';
 import 'package:efficient_uint8_list/efficient_uint8_list.dart';
 
-PackedUint8List internalProcessImage(PixelDataMessage data) {
+PackedUint8List internalProcessImage(PixelDataMessage data, [bool useEfficientUint8List = true]) {
   final byteCount = 4 * data.width * data.height;
-  final bytes = createUint8List(byteCount);
+  final bytes = useEfficientUint8List ? createUint8List(byteCount) : SafeUint8List(Uint8List(byteCount));
+
+  Timeline.startSync('processImageDart');
 
   final sizeOfRow = 4 * data.width;
   final defCount = data.colors.length;
@@ -58,5 +63,6 @@ PackedUint8List internalProcessImage(PixelDataMessage data) {
       }
     }
   }
+  Timeline.finishSync();
   return bytes;
 }

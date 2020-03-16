@@ -5,13 +5,7 @@ import '../common/message.dart';
 import '../common/internal_process_image.dart';
 import 'package:efficient_uint8_list/efficient_uint8_list.dart';
 
-PackedUint8List syncProcessImage(PixelDataMessage message) {
-  Timeline.startSync('processImageDart');
-  final bytes = internalProcessImage(message);
-  Timeline.finishSync();
-  
-  return bytes;
-}
+PackedUint8List syncProcessImage(PixelDataMessage message) => internalProcessImage(message);
 
 Future<PackedUint8List> asyncProcessImage(PixelDataMessage message) {
   return Future.microtask(() => internalProcessImage(message));

@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_cartesian_plane/cartesian_widget.dart';
 import 'package:flutter_cartesian_plane/cartesian_utils.dart';
+import 'package:flutter_cartesian_plane/cartesian_computation.dart' as def;
+import 'package:flutter_cartesian_plane/computation/sdk/process_image.dart' as sdk;
+import 'package:efficient_uint8_list/efficient_uint8_list.dart';
 
 void main() {
   runApp(Example());
@@ -21,6 +25,21 @@ Map<ThemeMode, IconData> themeIconMap = {
 
 class _ExampleState extends State<Example> {
   ThemeMode themeMode = ThemeMode.system;
+  bool usingFfi = true;
+  bool usingIsolate = false;
+  int lastTimeTaken = 0;
+  int seed = 0;
+
+  Future<PackedUint8List> timedConversor(def.PixelDataMessage msg) async {
+    final ImageConversor conversor = usingFfi ? def.asyncProcessImage : usingIsolate ? def.parallelProcessImage : sdk.asyncProcessImage;
+    final timer = Stopwatch()..start();
+    final img = await conversor(msg);
+    timer.stop();
+    setState(() {
+      lastTimeTaken = timer.elapsedMicroseconds;
+    });
+    return img;
+  }
 
   Widget buildThemeSwitcher() => Builder(
       builder: (BuildContext context) => IconButton(
@@ -49,31 +68,41 @@ class _ExampleState extends State<Example> {
             child: Column(
               children: <Widget>[
                 Text(name),
-                Spacer(),
-                CartesianPlane(
-                    aspectRatio: 2,
-                    coords: Rect.fromLTRB(0, 1, 4 * pi, -1),
-                    defs: func == null
-                        ? mapWithI(
-                            funcs,
-                            (i, e) => FunctionDef(
-                                color: Theme.of(context).accentColor,
-                                func: e,
-                                hash: Theme.of(context).hashCode +
-                                    name.hashCode * (i + 3)))
-                        : [
-                            FunctionDef(
-                                color: Theme.of(context).accentColor,
-                                func: func,
-                                hash: Theme.of(context).hashCode,
-                                name: name)
-                          ])
+                Expanded(
+                                  child: CartesianPlane(
+                      coords: Rect.fromLTRB(0, 1, 4 * pi, -1).toCoords(),
+                      customConversor: timedConversor,
+                      defs: func == null
+                          ? mapWithI<FunctionDef, MathFunc>(
+                              funcs,
+                              (i, e) => FunctionDef(
+                                  color: Theme.of(context).accentColor.value,
+                                  func: e,
+                                  hash: Theme.of(context).hashCode +
+                                      name.hashCode * (i + 3) * usingFfi.hashCode * usingIsolate.hashCode * seed))
+                          : [
+                              FunctionDef(
+                                  color: Theme.of(context).accentColor.value,
+                                  func: func,
+                                  hash: Theme.of(context).hashCode * usingFfi.hashCode * usingIsolate.hashCode * seed,
+                                  name: name)
+                            ]),
+                )
               ],
               mainAxisSize: MainAxisSize.min,
             ),
           ),
         ),
       );
+    
+  List<Widget> buildImplSwitcher() => [Text('Ffi'),Checkbox(value: usingFfi, onChanged: (b) => setState(() => usingFfi = b))];
+  List<Widget> buildIsolateSwitcher() => [Text('Isolate'),Checkbox(value: usingIsolate && !usingFfi, onChanged: !usingFfi ? (b) => setState(() => usingIsolate = b) : null)];
+
+  void refresh() {
+    setState(() {
+      seed = DateTime.now().hashCode;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,57 +112,13 @@ class _ExampleState extends State<Example> {
       home: Scaffold(
         appBar: AppBar(
           title: Text('Cartesian Plane example'),
-          actions: <Widget>[buildThemeSwitcher()],
+          actions: <Widget>[buildThemeSwitcher(), ...buildImplSwitcher(), ...buildIsolateSwitcher()],
         ),
-        body: GridView(
-          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 300, childAspectRatio: 1.3),
+        floatingActionButton: FloatingActionButton(onPressed: refresh, child: Icon(Icons.refresh)),
+        body: Column(
           children: <Widget>[
-            wrapFunction('Sine', func: sin),
-            wrapFunction('Cosine', func: cos),
-            wrapFunction('Sin & Cos', funcs: [sin, cos]),
-            wrapFunction('Theta - Sin theta', func: (double x) => sin(x) - x),
-            wrapFunction('Theta & Sin theta', funcs: [sin, (double x) => x]),
-            wrapFunction('Sine', func: sin),
-            wrapFunction('Cosine', func: cos),
-            wrapFunction('Sin & Cos', funcs: [sin, cos]),
-            wrapFunction('Theta - Sin theta', func: (double x) => sin(x) - x),
-            wrapFunction('Theta & Sin theta', funcs: [sin, (double x) => x]),
-            wrapFunction('Sine', func: sin),
-            wrapFunction('Cosine', func: cos),
-            wrapFunction('Sin & Cos', funcs: [sin, cos]),
-            wrapFunction('Theta - Sin theta', func: (double x) => sin(x) - x),
-            wrapFunction('Theta & Sin theta', funcs: [sin, (double x) => x]),
-            wrapFunction('Sine', func: sin),
-            wrapFunction('Cosine', func: cos),
-            wrapFunction('Sin & Cos', funcs: [sin, cos]),
-            wrapFunction('Theta - Sin theta', func: (double x) => sin(x) - x),
-            wrapFunction('Theta & Sin theta', funcs: [sin, (double x) => x]),
-            wrapFunction('Sine', func: sin),
-            wrapFunction('Cosine', func: cos),
-            wrapFunction('Sin & Cos', funcs: [sin, cos]),
-            wrapFunction('Theta - Sin theta', func: (double x) => sin(x) - x),
-            wrapFunction('Theta & Sin theta', funcs: [sin, (double x) => x]),
-            wrapFunction('Sine', func: sin),
-            wrapFunction('Cosine', func: cos),
-            wrapFunction('Sin & Cos', funcs: [sin, cos]),
-            wrapFunction('Theta - Sin theta', func: (double x) => sin(x) - x),
-            wrapFunction('Theta & Sin theta', funcs: [sin, (double x) => x]),
-            wrapFunction('Sine', func: sin),
-            wrapFunction('Cosine', func: cos),
-            wrapFunction('Sin & Cos', funcs: [sin, cos]),
-            wrapFunction('Theta - Sin theta', func: (double x) => sin(x) - x),
-            wrapFunction('Theta & Sin theta', funcs: [sin, (double x) => x]),
-            wrapFunction('Sine', func: sin),
-            wrapFunction('Cosine', func: cos),
-            wrapFunction('Sin & Cos', funcs: [sin, cos]),
-            wrapFunction('Theta - Sin theta', func: (double x) => sin(x) - x),
-            wrapFunction('Theta & Sin theta', funcs: [sin, (double x) => x]),
-            wrapFunction('Sine', func: sin),
-            wrapFunction('Cosine', func: cos),
-            wrapFunction('Sin & Cos', funcs: [sin, cos]),
-            wrapFunction('Theta - Sin theta', func: (double x) => sin(x) - x),
-            wrapFunction('Theta & Sin theta', funcs: [sin, (double x) => x]),
+            Text('Last img took ${lastTimeTaken}us'),
+            Expanded(child: wrapFunction('sine & theta', funcs: [sin, (double x) => x])),
           ],
         ),
       ),

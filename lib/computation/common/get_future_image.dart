@@ -1,17 +1,17 @@
 import 'dart:developer';
 import 'dart:typed_data';
 import 'package:efficient_uint8_list/efficient_uint8_list.dart';
-import '../../cartesian_utils.dart' show FunctionDef, IntSize, Coordinates, lerpDouble;
+import '../../cartesian_utils.dart' show FunctionDef, ImageConversor, IntSize, Coordinates, lerpDouble;
 import 'dart:async';
 import 'message.dart';
 import '../async_process_image.dart';
 
 Future<PackedUint8List> getFutureImage(
     IntSize sizePx, List<FunctionDef> defs, Coordinates coords, int lineSize,
-    {FutureOr<PackedUint8List> Function(PixelDataMessage msg)
-        imageConverter}) async {
+    {ImageConversor
+        imageConversor}) async {
   // Use the async implementation by default
-  imageConverter ??= asyncProcessImage;
+  imageConversor ??= asyncProcessImage;
 
   Timeline.startSync('calculateYValues');
   // We will make an List with all the x values as the idx and the y values and then we will add
@@ -59,7 +59,7 @@ Future<PackedUint8List> getFutureImage(
   final colors = Uint32List.fromList(defs
       .map<int>((e) => e.color ?? 0xFFFFFFFF).toList(growable: false));
   // Now we convert the Ys into an actual image.
-  final bytes = await imageConverter(PixelDataMessage(
+  final bytes = await imageConversor(PixelDataMessage(
       values: values,
       width: width,
       height: height,

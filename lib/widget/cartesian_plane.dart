@@ -28,13 +28,15 @@ class CartesianPlane extends StatefulWidget {
       this.currentX,
       this.lineSize = 2,
       this.aspectRatio,
-      this.defs})
+      this.defs,
+      this.customConversor})
       : coords = coords ?? Coordinates.def;
   final Coordinates coords;
   final double currentX;
   final double aspectRatio;
   final int lineSize;
   final List<FunctionDef> defs;
+  final ImageConversor customConversor;
 
   @override
   _CartesianPlaneState createState() => _CartesianPlaneState();
@@ -77,7 +79,7 @@ class _CartesianPlaneState extends State<CartesianPlane> {
     // We will need to process the image now
     final processing = Tuple2<List<FunctionDef>, IntSize>(defs, size);
     currentProcessing = processing;
-    final bytes = await getFutureImage(size, defs, coords, lineSize * 2);
+    final bytes = await getFutureImage(size, defs, coords, lineSize * 2, imageConversor: widget.customConversor);
 
     // Exit if a new image was scheduled
     if (processing != currentProcessing) return;

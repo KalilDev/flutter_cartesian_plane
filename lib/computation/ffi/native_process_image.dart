@@ -46,9 +46,9 @@ ffi.Pointer<ffi.Uint16> _allocUint16(Uint16List l) {
 
 ffi.DynamicLibrary _libprocessImage() {
   try {
-    return ffi.DynamicLibrary.open(Directory.current.path + '/libprocessImage.so');
+    return ffi.DynamicLibrary.open('libprocessImage.so');
   } on ArgumentError {
-    // The library could not be loaded, so the dart fallback will be used
+    print('The library could not be loaded, so the dart fallback will be used');
     return null;
   }
 }

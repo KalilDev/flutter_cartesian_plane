@@ -3,10 +3,9 @@ import 'isolate_wrapper.dart';
 
 import 'package:efficient_uint8_list/efficient_uint8_list.dart';
 import '../common/message.dart';
-import '../sync_process_image.dart';
+import '../common/internal_process_image.dart' as sdk;
 
-Future<PackedUint8List> processImageImpl(PixelDataMessage message) {
-  print('Using isolate impl');
+Future<PackedUint8List> parallelProcessImage(PixelDataMessage message) {
   return runOnIsolate<PackedUint8List, PixelDataMessage>(
       wrappedProcessImage, message);
 }
@@ -16,6 +15,7 @@ void wrappedProcessImage(SendPort mainSink) {
   mainSink.send(isolateStream.sendPort);
 
   isolateStream.listen((dynamic message) {
-    mainSink.send(syncProcessImage(message as PixelDataMessage));
+    // We cannot pass native types between isolates yet :/
+    mainSink.send(sdk.internalProcessImage(message as PixelDataMessage, false));
   });
 }
